@@ -45,7 +45,7 @@
   tags: [setup]
 
 - name: pip install
-  shell: ~/.virtualenvs/{{ project_name }}/bin/pip install -r requirements.txt chdir={{ project_path }}
+  pip: virtualenv={{venv}}  requirements=requirements.txt  chdir={{ project_path }}
   sudo_user: '{{ application_user }}'
   tags: [update]
 

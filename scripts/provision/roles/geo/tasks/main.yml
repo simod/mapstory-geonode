@@ -22,9 +22,14 @@
   copy: src=roles/geo/files/geogigconfig dest=/usr/share/tomcat7/.geogigconfig mode=0775 owner=tomcat7 group=tomcat7
   tags: [setup]
 
+- name: check if geoserver is already there
+  shell: "[ -f /var/lib/tomcat7/webapps/geoserver.war ] && echo 'true' || echo 'false'"
+  register: geoserver_exists
+
 - name: fetch geoserver
-  shell: wget -SN {{ geoserver_download }} chdir=/tmp/{{ application_name }}
-  tags: [geoserver]
+  sudo: True
+  get_url: url={{ geoserver_download }} dest=/tmp/{{ application_name }}
+  when: geoserver_exists.stdout == "false"
 
 - name: db client settings
   template: src=roles/geo/files/geoserver.xml dest=/etc/tomcat7/Catalina/localhost/geoserver.xml mode=0700 owner=tomcat7 group=tomcat7
@@ -32,6 +37,7 @@
 
 - name: copy geoserver.war to tomcat webapps
   shell: cp /tmp/{{ application_name }}/geoserver.war /var/lib/tomcat7/webapps/geoserver.war
+  when: geoserver_exists.stdout == "false"
   notify: restart geoserver
   tags: [geoserver]
 
@@ -76,6 +82,10 @@
   copy: src=roles/geo/files/geogigconfig dest=/var/lib/geoserver/geoserver/.geogigconfig mode=0775 owner=tomcat7 group=tomcat7
   tags: [geoserver, geogig]
 
+- name: unpack geoserver datadir
+  shell: "[ ! -e {{ geoserver_data }} ] && unzip /tmp/{{ application_name }}/geoserver.war data/* -d /var/lib/geoserver/ || exit 0"
+  tags: [geoserver]
+
 - name: default styles
   copy: src=roles/geo/files/{{item}} dest=/var/lib/geoserver/data/styles mode=0775 owner=tomcat7 group=tomcat7
   with_items:
@@ -84,10 +94,6 @@
     - default_point.sld
     - default_polygon.sld
   tags: [geoserver, styles]
-
-- name: unpack geoserver datadir
-  shell: "[ ! -e {{ geoserver_data }} ] && unzip /tmp/{{ application_name }}/geoserver.war data/* -d /var/lib/geoserver/ || exit 0"
-  tags: [geoserver]
 
 - name: copy geoserver config.xml
   template: src=roles/geo/files/config.xml dest={{ geoserver_data }}/security/config.xml owner=tomcat7 group=tomcat7
